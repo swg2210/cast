@@ -1,14 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { BrowserRouter, Routes, Route, Link, useNavigate, useParams } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
-  ArrowRight,
   Clock,
   ExternalLink,
-  Search,
-  ShieldCheck,
-  Sparkles,
   TrendingUp,
   ChevronRight,
   Info,
@@ -27,14 +23,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 /**
  * MVP Homepage + Market Detail
@@ -46,7 +34,7 @@ import {
  * - GET /api/markets - 마켓 목록
  * - GET /api/markets/:id - 마켓 상세
  * - GET /api/odds/history/:id?range=1d - 확률 히스토리
- * - POST /api/bets - 배팅 생성
+ * - POST /api/picks - 픽 생성
  */
 
 // ------------------------------
@@ -359,17 +347,6 @@ function SegmentedTabs({
   );
 }
 
-function ProbBar({ probs }: { probs: number[] }) {
-  const left = probs[0] ?? 0;
-  const l = Math.max(0, Math.min(1, left));
-  return (
-    <div className="mt-3">
-      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-        <div className="h-full rounded-full bg-foreground/70" style={{ width: `${Math.round(l * 100)}%` }} />
-      </div>
-    </div>
-  );
-}
 
 // ------------------------------
 // Quote Panel (mock)
@@ -433,16 +410,16 @@ function QuotePanel({
   const quote = useMemo(() => mockLmsrQuote({ stake, prob: outcome.prob, feeRate, liquidityB }), [stake, outcome.prob]);
   const slippageOk = quote.slippagePct <= maxSlip;
 
-  // API 연동 시: POST /api/bets
+  // API 연동 시: POST /api/picks
   const handleBet = () => {
     if (!slippageOk || stake <= 0) return;
-    console.log("배팅 생성:", {
+    console.log("픽 생성:", {
       marketId: market.id,
       outcomeId: selectedOutcomeId,
       stake,
       maxSlippage: maxSlip,
     });
-    alert("배팅 생성 (mock)");
+    alert("픽 생성 (mock)");
   };
 
   return (
@@ -450,7 +427,7 @@ function QuotePanel({
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <CardTitle className="text-base">배팅하기</CardTitle>
+            <CardTitle className="text-base">픽하기</CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">
               체결 시점 확률로 확정돼요. (수수료 {Math.round(feeRate * 100)}%)
             </p>
@@ -478,7 +455,7 @@ function QuotePanel({
                     <div className="text-sm font-semibold line-clamp-1">{o.label}</div>
                     <div className="text-xs text-muted-foreground">{formatPct(o.prob)}</div>
                   </div>
-                  <div className="mt-1 text-xs text-muted-foreground">배당 {toDecimalOdds(o.prob)}배</div>
+                  <div className="mt-1 text-xs text-muted-foreground">예상 수익 {toDecimalOdds(o.prob)}배</div>
                 </button>
               );
             })}
@@ -486,10 +463,36 @@ function QuotePanel({
 
           <div className="grid gap-2">
             <div className="text-xs font-medium text-muted-foreground">금액</div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 rounded-2xl"
+                onClick={() => setStakeStr("100")}
+              >
+                100P
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 rounded-2xl"
+                onClick={() => setStakeStr("500")}
+              >
+                500P
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 rounded-2xl"
+                onClick={() => setStakeStr("1000")}
+              >
+                1,000P
+              </Button>
+            </div>
             <Input
               value={stakeStr}
               onChange={(e) => setStakeStr(e.target.value)}
-              placeholder="예: 10000"
+              placeholder="직접 입력"
               className="rounded-2xl"
             />
             <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -497,7 +500,7 @@ function QuotePanel({
               <span>{Math.round(quote.fee).toLocaleString()}P</span>
             </div>
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>순 배팅</span>
+              <span>순 픽</span>
               <span>{Math.round(quote.netStake).toLocaleString()}P</span>
             </div>
           </div>
@@ -538,7 +541,7 @@ function QuotePanel({
             </div>
 
             <Button className="rounded-2xl" disabled={!slippageOk || stake <= 0} onClick={handleBet}>
-              배팅 확정
+              픽 확정
             </Button>
 
             <div className="flex items-start gap-2 rounded-2xl bg-muted/40 p-3 text-xs text-muted-foreground">
@@ -598,247 +601,120 @@ function TopNav() {
   );
 }
 
-function Hero() {
+// Featured Pick Section (토스증권 "3일 뒤 이벤트" 스타일)
+function FeaturedPick() {
+  const featured = mockMarkets[0]; // 첫 번째 마켓을 featured로
+
   return (
-    <div className="mx-auto max-w-6xl px-4 pt-10 pb-6">
-      <div className="grid gap-6 md:grid-cols-2 md:items-center">
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
-          <Badge variant="secondary" className="rounded-full">
-            AI 이슈 수집 · 자동 마켓 발행 · LMSR 확률
-          </Badge>
-          <h1 className="mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
-            오늘의 이슈를 <span className="underline underline-offset-8">확률</span>로 보고,
-            <br className="hidden md:block" />
-            원하는 선택지에 배팅하세요.
-          </h1>
-          <p className="mt-4 text-muted-foreground leading-relaxed">
-            뉴스·커뮤니티 이슈를 AI가 정리하고, 명확한 정산 기준으로 마켓을 자동 생성합니다. 수수료·슬리피지·근거 링크까지
-            투명하게 제공합니다.
-          </p>
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-            <Button className="rounded-2xl" asChild>
-              <Link to="/markets">
-                인기 마켓 보기 <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-            <Button variant="outline" className="rounded-2xl">
-              어떻게 동작하나요?
-            </Button>
-          </div>
-
-          <div className="mt-6 grid grid-cols-3 gap-3">
-            <Card className="rounded-3xl shadow-sm">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <Sparkles className="h-4 w-4" />
-                  자동 생성
+    <div className="mx-auto max-w-6xl px-4 pb-4">
+      <div className="text-xs font-medium text-muted-foreground mb-2">오늘의 픽</div>
+      <Link to={`/markets/${featured.id}`}>
+        <Card className="rounded-3xl shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="rounded-full text-xs">
+                    {CATEGORIES.find((c) => c.key === featured.category)?.label ?? "기타"}
+                  </Badge>
+                  {featured.tags.includes("HIGH") && (
+                    <Badge className="rounded-full text-xs">HOT</Badge>
+                  )}
                 </div>
-                <div className="mt-2 text-xs text-muted-foreground">이슈→마켓 자동 발행</div>
-              </CardContent>
-            </Card>
-            <Card className="rounded-3xl shadow-sm">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <ShieldCheck className="h-4 w-4" />
-                  정책 격리
-                </div>
-                <div className="mt-2 text-xs text-muted-foreground">정치는 QUARANTINE</div>
-              </CardContent>
-            </Card>
-            <Card className="rounded-3xl shadow-sm">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <TrendingUp className="h-4 w-4" />
-                  LMSR
-                </div>
-                <div className="mt-2 text-xs text-muted-foreground">참여에 따라 확률 변동</div>
-              </CardContent>
-            </Card>
-          </div>
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, delay: 0.05 }}>
-          <Card className="rounded-3xl shadow-sm overflow-hidden">
-            <CardHeader className="pb-0">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base">실시간 확률</CardTitle>
-                <Badge className="rounded-full">LIVE</Badge>
-              </div>
-              <p className="text-xs text-muted-foreground">마켓 상세에서 기간별 확률 흐름을 확인할 수 있어요.</p>
-            </CardHeader>
-            <CardContent className="pt-4">
-              <div className="rounded-3xl border p-4">
-                <div className="text-sm font-semibold line-clamp-1">{mockMarkets[0].title}</div>
-                <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                  <span>현재 확률</span>
-                  <span>
-                    {formatPct(mockMarkets[0].outcomes[0].prob)} / {formatPct(mockMarkets[0].outcomes[1].prob)}
-                  </span>
-                </div>
-                <div className="mt-3">
-                  <OddsHistoryChart market={mockMarkets[0]} rangeKey="1d" />
+                <div className="mt-2 text-sm font-semibold leading-snug">{featured.title}</div>
+                <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-3.5 w-3.5" />
+                    <span>{featured.closeIn}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <TrendingUp className="h-3.5 w-3.5" />
+                    <span>{featured.volume}</span>
+                  </div>
                 </div>
               </div>
-              <div className="mt-4 flex gap-2">
-                <Button className="flex-1 rounded-2xl" asChild>
-                  <Link to={`/markets/${mockMarkets[0].id}`}>마켓 상세 보기</Link>
-                </Button>
-                <Button variant="outline" className="rounded-2xl">
-                  규칙 보기
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
+              <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+            </div>
+          </CardContent>
+        </Card>
+      </Link>
     </div>
   );
 }
 
 function MarketSection({ showHeading = true }: { showHeading?: boolean }) {
-  const [query, setQuery] = useState("");
   const [cat, setCat] = useState("all");
-  const [range, setRange] = useState("1d");
-  const [hideHighRisk, setHideHighRisk] = useState(false);
-  const searchRefId = "home-search";
-
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "/") {
-        e.preventDefault();
-        const el = document.getElementById(searchRefId) as HTMLInputElement | null;
-        el?.focus();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
     return mockMarkets.filter((m) => {
       const inCat = cat === "all" ? true : m.category === cat;
-      const inQ = q ? m.title.toLowerCase().includes(q) : true;
-      const riskOk = hideHighRisk ? !m.tags.includes("HIGH") : true;
-      return inCat && inQ && riskOk;
+      return inCat;
     });
-  }, [query, cat, hideHighRisk]);
+  }, [cat]);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
+    <div className="mx-auto max-w-6xl px-4 py-4">
       {showHeading && (
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 className="text-xl font-semibold tracking-tight">실시간 마켓</h2>
-            <p className="mt-1 text-sm text-muted-foreground">/ 를 눌러 검색하세요 · 근거 링크와 정산 기준이 명확한 마켓만 노출돼요.</p>
-          </div>
-
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                id={searchRefId}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="마켓 검색"
-                className="pl-9 rounded-2xl w-full sm:w-[240px]"
-              />
-            </div>
-            <Select value={cat} onValueChange={setCat}>
-              <SelectTrigger className="rounded-2xl w-full sm:w-[180px]">
-                <SelectValue placeholder="카테고리" />
-              </SelectTrigger>
-              <SelectContent>
-                {CATEGORIES.map((c) => (
-                  <SelectItem key={c.key} value={c.key}>
-                    {c.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="mb-3">
+          <h2 className="text-lg font-semibold tracking-tight">실시간 픽</h2>
         </div>
       )}
 
-      <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="text-xs text-muted-foreground">기간</div>
-          <SegmentedTabs value={range} onChange={setRange} items={TIME_RANGES} />
-        </div>
-
-        <div className="flex items-center justify-between gap-3 rounded-2xl border bg-background px-3 py-2">
-          <div className="flex items-center gap-2">
-            <div className="text-xs font-medium">투자위험 마켓 숨기기</div>
-            <div className="text-xs text-muted-foreground">(HIGH)</div>
-          </div>
-          <Switch checked={hideHighRisk} onCheckedChange={setHideHighRisk} />
-        </div>
+      <div className="flex items-center gap-2 overflow-x-auto pb-3 scrollbar-hide">
+        {CATEGORIES.map((c) => (
+          <button
+            key={c.key}
+            onClick={() => setCat(c.key)}
+            className={
+              "flex-shrink-0 px-4 py-2 text-sm font-medium rounded-2xl transition " +
+              (cat === c.key
+                ? "bg-foreground text-background"
+                : "bg-muted/40 text-muted-foreground hover:bg-muted")
+            }
+          >
+            {c.label}
+          </button>
+        ))}
       </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-4 space-y-2">
         {filtered.map((m) => (
-          <Link key={m.id} to={`/markets/${m.id}`} className="block">
-            <Card className="rounded-3xl shadow-sm hover:shadow-md transition-shadow">
-              <CardContent className="p-0">
-                <div className="p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="secondary" className="rounded-full">
-                          {CATEGORIES.find((c) => c.key === m.category)?.label ?? "기타"}
-                        </Badge>
-                        {m.tags.map((t) => (
-                          <Badge key={t} className="rounded-full">
-                            {t}
-                          </Badge>
-                        ))}
+          <Link key={m.id} to={`/markets/${m.id}`}>
+            <Card className="rounded-2xl shadow-sm hover:shadow-md transition-shadow">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0">
+                    <Badge variant="secondary" className="rounded-full text-xs">
+                      {CATEGORIES.find((c) => c.key === m.category)?.label ?? "기타"}
+                    </Badge>
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold leading-snug line-clamp-1">{m.title}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {m.outcomes[0]?.label} vs {m.outcomes[1]?.label}
+                    </div>
+
+                    <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        <span>{m.closeIn}</span>
                       </div>
-                      <div className="mt-2 text-sm font-semibold leading-snug line-clamp-2">{m.title}</div>
-                    </div>
-                    <ChevronRight className="mt-1 h-5 w-5 text-muted-foreground" />
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-2 gap-3">
-                    {m.outcomes.slice(0, 2).map((o, idx) => (
-                      <div key={o.id} className="rounded-2xl border bg-background p-3">
-                        <div className="text-[11px] text-muted-foreground">선택지 {idx === 0 ? "A" : "B"}</div>
-                        <div className="mt-1 text-sm font-semibold line-clamp-1">{o.label}</div>
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          {formatPct(o.prob)} · {toDecimalOdds(o.prob)}배
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <ProbBar probs={[m.outcomes[0]?.prob ?? 0]} />
-
-                  <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
-                      <span>마감 {m.closeIn}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <TrendingUp className="h-4 w-4" />
-                      <span>거래 {m.volume}</span>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 rounded-2xl border bg-muted/20 p-3">
-                    <div className="text-[11px] text-muted-foreground">
-                      확률 흐름({TIME_RANGES.find((t) => t.key === range)?.label})
-                    </div>
-                    <div className="mt-2 h-[72px]">
-                      <div className="h-[72px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={generateOddsHistory(m, range)} margin={{ top: 5, right: 0, left: -25, bottom: 0 }}>
-                            <XAxis dataKey="label" hide />
-                            <YAxis domain={[0, 1]} hide />
-                            <Line type="monotone" dataKey={m.outcomes[0].id} dot={false} strokeWidth={2} stroke="#111827" opacity={0.9} />
-                          </LineChart>
-                        </ResponsiveContainer>
+                      <div className="flex items-center gap-1">
+                        <TrendingUp className="h-3 w-3" />
+                        <span>{m.volume}</span>
                       </div>
                     </div>
+
+                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-foreground/70"
+                        style={{ width: `${Math.round((m.outcomes[0]?.prob ?? 0) * 100)}%` }}
+                      />
+                    </div>
                   </div>
+
+                  <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                 </div>
               </CardContent>
             </Card>
@@ -865,7 +741,7 @@ function Footer() {
             <ul className="mt-2 space-y-2 text-xs text-muted-foreground">
               <li>마켓</li>
               <li>지갑/충전</li>
-              <li>내 배팅</li>
+              <li>내 픽</li>
             </ul>
           </div>
           <div>
@@ -900,8 +776,8 @@ function Footer() {
 
 function HomePage() {
   return (
-    <div>
-      <Hero />
+    <div className="pt-4">
+      <FeaturedPick />
       <MarketSection />
     </div>
   );
@@ -912,7 +788,7 @@ function MarketsPage() {
     <div>
       <div className="mx-auto max-w-6xl px-4 pt-8">
         <h1 className="text-2xl font-semibold tracking-tight">마켓</h1>
-        <p className="mt-1 text-sm text-muted-foreground">지금 열려있는 마켓을 둘러보고 배팅해보세요.</p>
+        <p className="mt-1 text-sm text-muted-foreground">지금 열려있는 마켓을 둘러보고 픽해보세요.</p>
       </div>
       <MarketSection showHeading={false} />
     </div>
@@ -997,7 +873,7 @@ function MarketDetailPage() {
                       <div className="text-sm font-semibold">{o.label}</div>
                       <div className="text-sm font-semibold">{formatPct(o.prob)}</div>
                     </div>
-                    <div className="mt-2 text-xs text-muted-foreground">배당 {toDecimalOdds(o.prob)}배</div>
+                    <div className="mt-2 text-xs text-muted-foreground">예상 수익 {toDecimalOdds(o.prob)}배</div>
                     <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
                       <div className="h-full rounded-full bg-foreground/70" style={{ width: `${Math.round(o.prob * 100)}%` }} />
                     </div>
